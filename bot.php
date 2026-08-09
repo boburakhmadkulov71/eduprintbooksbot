@@ -29,14 +29,58 @@ if (isset($update['message'])) {
         ]));
     }
 
-    // 2. Admin botga xabar/rasm yuborganida guruhga uzatish
+    // 2. Admin botga xabar yuborganida guruhga uzatish
     if ($chat_id > 0 && $user_id == $admin_id) {
-        
-        // Agar rasm yuborilgan bo'lsa (matni bo'lsa ham, bo'lmasa ham)
-        if (isset($message['photo'])) {
+
+        // A) Media Group (Albom/Bir nechta rasm) kelganda
+        if (isset($message['media_group_id'])) {
+            $media_group_id = $message['media_group_id'];
+            $file_name = "media_" . $media_group_id . ".json";
+
+            // Mavjud rasmlar ro'yxatini yuklaymiz yoki yangi ochamiz
+            $data = file_exists($file_name) ? json_decode(file_get_contents($file_name), true) : [];
+
             $photo = end($message['photo'])['file_id'];
             $caption = isset($message['caption']) ? $message['caption'] : '';
-            
+
+            $item = [
+                'type' => 'photo',
+                'media' => $photo
+            ];
+            if (!empty($caption)) {
+                $item['caption'] = $caption;
+                $item['parse_mode'] = 'HTML';
+            }
+
+            $data[] = $item;
+            file_put_contents($file_name, json_encode($data));
+
+            // Barcha rasmlar kelib bo'lishini 2 sekund kutamiz
+            sleep(2);
+
+            // Agar fayldagi rasmlar to'plami hali guruhga yuborilmagan bo'lsa
+            if (file_exists($file_name)) {
+                $final_data = json_decode(file_get_contents($file_name), true);
+                unlink($file_name); // Vaqtinchalik faylni o'chiramiz
+
+                // Telegram'ga bir vaqtning o'zida albom qilib yuboramiz
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $api_url . "sendMediaGroup");
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+                    'chat_id' => $group_id,
+                    'media' => json_encode($final_data)
+                ]));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_exec($ch);
+                curl_close($ch);
+            }
+        } 
+        // B) Bitta rasm kelganda
+        elseif (isset($message['photo'])) {
+            $photo = end($message['photo'])['file_id'];
+            $caption = isset($message['caption']) ? $message['caption'] : '';
+
             file_get_contents($api_url . "sendPhoto?" . http_build_query([
                 'chat_id' => $group_id,
                 'photo' => $photo,
@@ -44,7 +88,7 @@ if (isset($update['message'])) {
                 'parse_mode' => 'HTML'
             ]));
         } 
-        // Faqat matn o'zi yuborilgan bo'lsa
+        // C) Faqat matn kelganda
         elseif (isset($message['text'])) {
             file_get_contents($api_url . "sendMessage?" . http_build_query([
                 'chat_id' => $group_id,
