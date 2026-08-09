@@ -29,10 +29,8 @@ if (isset($update['message'])) {
         ]));
     }
 
-    // 2. Admin botga yuborgan xabarni (albom, rasm, video yoki matn) guruhga nusxalab o'tkazish
+    // 2. Admin botga nima yuborsa (xoh rasm+matn, xoh albom, xoh matn) guruhga nusxasini ko'chirib o'tkazadi
     if ($chat_id > 0 && $user_id == $admin_id) {
-        
-        // Telegram native copyMessage / copyMessages usulidan foydalanamiz
         file_get_contents($api_url . "copyMessage?" . http_build_query([
             'chat_id' => $group_id,
             'from_chat_id' => $chat_id,
